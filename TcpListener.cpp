@@ -30,7 +30,7 @@ bool TcpListener::SetupConnection(int infd)
     //struct Connection* conn = GetConnectionNode(infd, seqid);
     //if (conn != NULL)
     TcpConnect *conn = new TcpConnect();
-    conn->recvBuff.SetSize(1024);
+    conn->SetSize(1024);
     conn->fd =  infd;
     conn->id =  seqid;
     {
@@ -123,10 +123,10 @@ int create_and_bind(int port)
     return sfd;
 }
 
-int ReadNetData(int fd, TcpBuff& data)
+int ReadNetData(int fd, TcpConnect* data)
 {
-    char* buf = (char*)data.ptr + data.dataSize;
-    int bufSize = data.bufferSize - data.dataSize;
+    char* buf = (char*)data->ptr + data->dataSize;
+    int bufSize = data->bufferSize - data->dataSize;
     
     int offset = 0;
     while (offset < bufSize)
@@ -140,7 +140,7 @@ int ReadNetData(int fd, TcpBuff& data)
         {
             if (errno == EAGAIN || errno == EWOULDBLOCK) //no data
             {
-                data.dataSize += offset;
+                data->dataSize += offset;
                 return 0;
             }
             else if (errno == EINTR) //interrupt
@@ -271,24 +271,30 @@ int TcpListener::NetInit(int port)
 
 void TcpListener::CloseConnection(TcpConnect* conn)
 {
-    delete []conn;
+    close(conn->fd);
+
+    g_FD2Conn.erase(conn->fd);
+    g_Seq2Conn.erase(conn->id);
+    delete conn;
 }
 
 void TcpListener::HandleInputEvent(TcpConnect* conn, uint& eventflag)
 {
     if (eventflag & EPOLLIN)
     {
-        int ret = ReadNetData(conn->fd, conn->recvBuff);
+        int ret = ReadNetData(conn->fd, conn);
         if (ret == -1 || ret == 1) //drop connection when read error or query too long(treat as attack)
         {
-            //Loge("HandleInputEvent Read Failed close %d %llu", conn->fd, conn->seqid);
+            fprintf(stderr, "HandleInputEvent Read Failed close %d %llu", conn->fd, conn->id);
             CloseConnection(conn);
             return;
         }
 
         fprintf(stderr, "===============\n");
-        fprintf(stderr, "%s\n", conn->recvBuff.ptr);
+        fprintf(stderr, "%s\n", conn->ptr);
         fprintf(stderr, "===============\n");
+        
+        conn->dataSize = 0;
     }
 
     if (eventflag & EPOLLOUT) 
@@ -328,11 +334,13 @@ void TcpListener::ProcessInput(int lfd, int efd, int n, struct epoll_event *even
                 retcode = AcceptConnection(lfd, efd, infd);
                 if (retcode != 0)
                 {
+                    printf("AcceptConnection retcode != 0\n");
                     break;
                 }
                 
                 if (infd != -1)
                 {
+                    printf("SetupConnection\n");
                     if (SetupConnection(infd) == false)
                     {
                         close(infd);
@@ -343,12 +351,14 @@ void TcpListener::ProcessInput(int lfd, int efd, int n, struct epoll_event *even
         else
         {
             printf("lfd != eventFd\n");
-             if (g_FD2Conn.count(eventFd) != 0)
+            if (g_FD2Conn.count(eventFd) != 0)
             {
+                fprintf(stderr, "HandleInputEvent\n");
                 HandleInputEvent(g_FD2Conn[eventFd], eventflag);
             }
             else
             {
+                fprintf(stderr, "HandleInputEvent bug ..\n");
                 close(eventFd); //should never happen, must be bug.
             }
         }

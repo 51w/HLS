@@ -20,7 +20,7 @@ public:
 
 /////////////////////////////
 
-class TcpConnect
+class TcpConnect : public TcpBuff
 {
 public:
     TcpConnect();
@@ -28,7 +28,7 @@ public:
 
     int fd;
     int id;
-    TcpBuff recvBuff;
+    //TcpBuff recvBuff;
 };
 
 class TcpSend
