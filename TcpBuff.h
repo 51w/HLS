@@ -1,6 +1,9 @@
 #ifndef _TCPBUFF_H_
 #define _TCPBUFF_H_
+#include <stdio.h>
+#include <stdlib.h>
 
+/////////////////////////////
 class TcpBuff
 {
 public:
@@ -15,45 +18,26 @@ public:
     unsigned char* ptr;
 };
 
-TcpBuff::TcpBuff()
-{
-    dataSize = 0;
-    bufferSize = 0;
-    ptr = NULL;
-}
+/////////////////////////////
 
-TcpBuff::~TcpBuff()
-{
-    if(ptr != NULL)
-      free(ptr);
-  
-    dataSize = 0;
-    bufferSize = 0;
-}
-
-int TcpBuff::SetSize(int size)
-{
-    ptr = (unsigned char*)malloc(size);
-    bufferSize = size;
-    
-    return 0;
-}
-
-
-class RecvBuff
+class TcpConnect
 {
 public:
-    RecvBuff();
-    ~RecvBuff();
+    TcpConnect();
+    ~TcpConnect();
 
+    int fd;
+    int id;
+    TcpBuff recvBuff;
 };
 
-class SendBuff
+class TcpSend
 {
 public:
-    SendBuff();
-    ~SendBuff();
+    TcpSend();
+    ~TcpSend();
     
 };
+/////////////////////////////
 
 #endif

@@ -1,9 +1,9 @@
 #include <iostream>
 #include "TcpListener.h"
+#include "common.h"
 
 int main()
 {
-    std::cout << "===" << std::endl;
     
     TcpListener hls;
     hls.Listen(1060);

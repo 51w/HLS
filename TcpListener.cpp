@@ -1,5 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/epoll.h>
@@ -9,13 +7,12 @@
 #include <netdb.h>
 #include <fcntl.h>
 #include "TcpListener.h"
-#include "TcpConnect.h"
-#include "TcpBuff.h"
-#include "common.h"
+
 
 #define MAXEVENTS 64
 
 TcpListener::TcpListener()
+:tcpfd(-1), epollfd(-1), g_NextSeqId(100)
 {
 
 }
@@ -23,6 +20,27 @@ TcpListener::TcpListener()
 TcpListener::~TcpListener()
 {
 
+}
+
+bool TcpListener::SetupConnection(int infd)
+{
+    ullong seqid = g_NextSeqId++;
+    Logd("SetupConnection connection seqid %llu", seqid);
+    
+    //struct Connection* conn = GetConnectionNode(infd, seqid);
+    //if (conn != NULL)
+    TcpConnect *conn = new TcpConnect();
+    conn->recvBuff.SetSize(1024);
+    conn->fd =  infd;
+    conn->id =  seqid;
+    {
+        //conn->writed = 0;
+        g_Seq2Conn.insert(std::make_pair(seqid, conn));
+        g_FD2Conn.insert(std::make_pair(infd, conn));
+
+    }
+    
+    return (conn != NULL);
 }
 
 int make_socket_non_blocking (int sfd)
@@ -105,6 +123,104 @@ int create_and_bind(int port)
     return sfd;
 }
 
+int ReadNetData(int fd, TcpBuff& data)
+{
+    char* buf = (char*)data.ptr + data.dataSize;
+    int bufSize = data.bufferSize - data.dataSize;
+    
+    int offset = 0;
+    while (offset < bufSize)
+    {
+        int nread = read(fd, buf + offset, bufSize - offset);
+        if (nread > 0) //normal
+        {
+            offset += nread;
+        }
+        else if (nread == -1)
+        {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) //no data
+            {
+                data.dataSize += offset;
+                return 0;
+            }
+            else if (errno == EINTR) //interrupt
+            {
+                continue;
+            }
+            else //other error
+            {
+                Logw("ReadNetData read other error 0");
+                return -1;
+            }
+        }
+        else if (nread == 0) //remote close
+        {
+            Logw("ReadNetData remote close");
+            return -1;
+        }
+        else //other error , should never happen
+        {
+            Logw("ReadNetData read other error 1");
+            return -1;
+        }
+    }
+    
+    //data.dataSize = data.bufferSize;
+    return 1; //buffer full
+}
+
+int AcceptConnection(int lfd, int efd, int& infd)
+{
+    struct sockaddr in_addr;
+    socklen_t in_len;
+    char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
+    struct epoll_event event;
+    
+    infd = -1;
+    
+    in_len = sizeof(in_addr);
+    infd = accept (lfd, &in_addr, &in_len);
+    if (infd == -1)
+    {
+        if ((errno == EAGAIN) ||
+            (errno == EWOULDBLOCK) ||
+            errno == ECONNABORTED || errno == EPROTO || errno != EINTR)
+        {
+            /* We have processed all incoming
+             connections. */
+            return -1;
+        }
+        else
+        {
+            perror ("accept");
+            return -1;
+        }
+    }
+    
+    /* Make the incoming socket non-blocking and add it to the
+     list of fds to monitor. */
+    int s = make_socket_non_blocking (infd);
+    if (s == -1)
+    {
+        close(infd);
+        infd = -1;
+        return 0;
+    }
+    
+    Logd("AcceptConnection Accept connection fd:%d", infd);
+    
+    event.data.fd = infd;
+    event.events = EPOLLIN | EPOLLET;
+    s = epoll_ctl (efd, EPOLL_CTL_ADD, infd, &event);
+    if (s == -1)
+    {
+        perror ("epoll_ctl");
+        infd = -1;
+        return 0;
+    }
+    
+    return 0;
+}
 
 int TcpListener::NetInit(int port)
 {
@@ -153,27 +269,88 @@ int TcpListener::NetInit(int port)
     return 0;
 }
 
-void ProcessInput(int lfd, int efd, int n, struct epoll_event *events)
+void TcpListener::CloseConnection(TcpConnect* conn)
+{
+    delete []conn;
+}
+
+void TcpListener::HandleInputEvent(TcpConnect* conn, uint& eventflag)
+{
+    if (eventflag & EPOLLIN)
+    {
+        int ret = ReadNetData(conn->fd, conn->recvBuff);
+        if (ret == -1 || ret == 1) //drop connection when read error or query too long(treat as attack)
+        {
+            //Loge("HandleInputEvent Read Failed close %d %llu", conn->fd, conn->seqid);
+            CloseConnection(conn);
+            return;
+        }
+
+        fprintf(stderr, "===============\n");
+        fprintf(stderr, "%s\n", conn->recvBuff.ptr);
+        fprintf(stderr, "===============\n");
+    }
+
+    if (eventflag & EPOLLOUT) 
+    {
+        printf("EPOLLOUT\n");
+    }
+}
+
+void TcpListener::ProcessInput(int lfd, int efd, int n, struct epoll_event *events)
 {
     int retcode = -1;
     
     for (int i = 0; i < n; i++)
 	{
         int eventFd = events[i].data.fd;
-        uint32_t eventflag = events[i].events;
+        uint eventflag = events[i].events;
         
         if ((eventflag & EPOLLERR) || (eventflag & EPOLLHUP))
         {
             printf("close matchFd %d when conn error\n", eventFd);
+            if (g_FD2Conn.count(eventFd) != 0)
+            {
+                CloseConnection(g_FD2Conn[eventFd]);
+            }
+            else
+            {
+                close(eventFd); //should never happend, must be bug
+            }
 
 	    }
         else if (lfd == eventFd)
 	    {
             printf("lfd == eventFd\n");
+            while (1)
+            {
+                int infd = -1;
+                retcode = AcceptConnection(lfd, efd, infd);
+                if (retcode != 0)
+                {
+                    break;
+                }
+                
+                if (infd != -1)
+                {
+                    if (SetupConnection(infd) == false)
+                    {
+                        close(infd);
+                    }
+                }
+            }
         }
         else
         {
             printf("lfd != eventFd\n");
+             if (g_FD2Conn.count(eventFd) != 0)
+            {
+                HandleInputEvent(g_FD2Conn[eventFd], eventflag);
+            }
+            else
+            {
+                close(eventFd); //should never happen, must be bug.
+            }
         }
     }
 }
@@ -185,7 +362,7 @@ int TcpListener::Listen(int port)
     epoll_event events[MAXEVENTS];
     while(1)
     {
-        int n = epoll_wait (epollfd, events, MAXEVENTS, 100);
+        int n = epoll_wait (epollfd, events, MAXEVENTS, 1000);
         ProcessInput(tcpfd, epollfd, n, events);
         //ProcessOutput(epollfd, g_WriteList, g_PendingOutputs);
     }
