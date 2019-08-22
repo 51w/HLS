@@ -1,38 +1,46 @@
+///////////////////////////////////////
 #ifndef _TCPBUFF_H_
 #define _TCPBUFF_H_
 #include <stdio.h>
 #include <stdlib.h>
 #include "common.h"
-
-/////////////////////////////
+#include <map>
 
 class TcpBuff
 {
 public:
     TcpBuff();
     ~TcpBuff();
-    
-    int SetSize(int size);
+
+    void reset();
+    int SetSize(int num);
 
 public:
-    int dataSize;
-    int bufferSize;
+    int fd;
+    int id;
+
+    int datasize;
+    int offset;
+    int size;
     uchar* ptr;
 };
 
-/////////////////////////////
+///////////////////////////////////////
 
-class TcpConnect : public TcpBuff
+class TcpConnect
 {
 public:
     TcpConnect();
     ~TcpConnect();
 
-    int fd;
-    int id;
-    //TcpBuff recvBuff;
+    bool OpenConnect(int infd);
+
+    ullong _ConnectID;
+
+    std::map<int,    TcpBuff*> _FD2Conn; 
+    std::map<ullong, TcpBuff*> _ID2Conn;
 };
 
-/////////////////////////////
+///////////////////////////////////////
 
 #endif

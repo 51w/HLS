@@ -1,9 +1,9 @@
 #ifndef _COMMON_COMMON_H_
 #define _COMMON_COMMON_H_
-#include <stdio.h>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
+#include <stdio.h>
 
 typedef unsigned char		uchar;
 typedef unsigned short		ushort;

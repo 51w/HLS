@@ -12,7 +12,7 @@
 #define MAXEVENTS 64
 
 TcpListener::TcpListener()
-:tcpfd(-1), epollfd(-1), g_NextSeqId(100), _proc(NULL)
+:tcpfd(-1), epollfd(-1), _proc(NULL)
 {
 
 }
@@ -25,25 +25,6 @@ TcpListener::~TcpListener()
 void TcpListener::SetProc(TcpProc *proc)
 {
     _proc = proc;
-}
-
-bool TcpListener::SetupConnection(int infd)
-{
-    ullong seqid = g_NextSeqId++;
-    LOG(INFO) << "SetupConnection connection seqid " << seqid;
-
-    TcpConnect *conn = new TcpConnect();
-    conn->SetSize(1024);
-    conn->fd =  infd;
-    conn->id =  seqid;
-    {
-        //conn->writed = 0;
-        g_Seq2Conn.insert(std::make_pair(seqid, conn));
-        g_FD2Conn.insert(std::make_pair(infd, conn));
-
-    }
-    
-    return (conn != NULL);
 }
 
 int make_socket_non_blocking (int fd)

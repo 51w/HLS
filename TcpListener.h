@@ -2,7 +2,6 @@
 #define _TCPLISTENER_H_
 #include "common.h"
 #include "TcpBuff.h"
-#include <map>
 
 class TcpProc
 {
@@ -10,7 +9,7 @@ public:
     virtual ~TcpProc() {}
     virtual int ProcInput(ullong id, uchar* input, int size) = 0;
     virtual int ProcOutput()  = 0;
-    
+
     virtual int StartServer() = 0;
     virtual int StopServer()  = 0;
 };
@@ -32,11 +31,12 @@ public:
 
     int tcpfd;
     int epollfd;
-    ullong g_NextSeqId;
+    //ullong g_NextSeqId;
     TcpProc *_proc;
 
-    std::map<int,    TcpConnect*> g_FD2Conn; 
-    std::map<ullong, TcpConnect*> g_Seq2Conn;
+    TcpConnect ConnCTL;
+    //std::map<int,    TcpConnect*> g_FD2Conn; 
+    //std::map<ullong, TcpConnect*> g_Seq2Conn;
 };
 
 #endif
