@@ -12,7 +12,7 @@
 #define MAXEVENTS 64
 
 TcpListener::TcpListener()
-:tcpfd(-1), epollfd(-1), g_NextSeqId(100)
+:tcpfd(-1), epollfd(-1), g_NextSeqId(100), _proc(NULL)
 {
 
 }
@@ -22,13 +22,16 @@ TcpListener::~TcpListener()
 
 }
 
+void TcpListener::SetProc(TcpProc *proc)
+{
+    _proc = proc;
+}
+
 bool TcpListener::SetupConnection(int infd)
 {
     ullong seqid = g_NextSeqId++;
-    Logd("SetupConnection connection seqid %llu", seqid);
-    
-    //struct Connection* conn = GetConnectionNode(infd, seqid);
-    //if (conn != NULL)
+    LOG(INFO) << "SetupConnection connection seqid " << seqid;
+
     TcpConnect *conn = new TcpConnect();
     conn->SetSize(1024);
     conn->fd =  infd;
@@ -43,22 +46,20 @@ bool TcpListener::SetupConnection(int infd)
     return (conn != NULL);
 }
 
-int make_socket_non_blocking (int sfd)
+int make_socket_non_blocking (int fd)
 {
-    int flags, s;
-    
-    flags = fcntl (sfd, F_GETFL, 0);
+    int flags = fcntl(fd, F_GETFL, 0);
     if (flags == -1)
     {
-        perror ("fcntl");
+        LOG(ERROR) << "fcntl F_GETFL.";
         return -1;
     }
-    
     flags |= O_NONBLOCK;
-    s = fcntl (sfd, F_SETFL, flags);
-    if (s == -1)
+
+    int set = fcntl(fd, F_SETFL, flags);
+    if (set == -1)
     {
-        perror ("fcntl");
+        LOG(ERROR) << "fcntl F_SETFL";
         return -1;
     }
     
@@ -82,7 +83,7 @@ int create_and_bind(int port)
     s = getaddrinfo (NULL, Tport, &hints, &result);
     if (s != 0)
     {
-        fprintf (stderr, "getaddrinfo: %s\n", gai_strerror (s));
+        LOG(ERROR) << "getaddrinfo: " << gai_strerror(s);
         return -1;
     }
     
@@ -95,18 +96,18 @@ int create_and_bind(int port)
         int flag = 1;
         if( setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(int)) == 0)
         {
-            Logd("create_and_bind set resuse succ");
+            LOG(INFO) << "create_and_bind set resuse succ";
             s = bind (sfd, rp->ai_addr, rp->ai_addrlen);
             if (s == 0)
             {
-                Logd("create_and_bind bind succ");
+                LOG(INFO) << "create_and_bind bind succ";
                 /* We managed to bind successfully! */
                 break;
             }
-            else Loge("create_and_bind bind fail %d", errno);
+            else LOG(ERROR) << "create_and_bind bind fail " << errno;
         }
         else
-            Loge("create_and_bind set resuse fail %d", errno);
+            LOG(ERROR) << "create_and_bind set resuse fail " << errno;
         
         
         close (sfd);
@@ -114,7 +115,7 @@ int create_and_bind(int port)
     
     if (rp == NULL)
     {
-        fprintf (stderr, "Could not bind\n");
+        LOG(ERROR) << "Could not bind";
         return -1;
     }
     
@@ -149,18 +150,18 @@ int ReadNetData(int fd, TcpConnect* data)
             }
             else //other error
             {
-                Logw("ReadNetData read other error 0");
+                LOG(ERROR) << "ReadNetData read other error 0";
                 return -1;
             }
         }
         else if (nread == 0) //remote close
         {
-            Logw("ReadNetData remote close");
+            LOG(WARNING) << "ReadNetData remote close";
             return -1;
         }
         else //other error , should never happen
         {
-            Logw("ReadNetData read other error 1");
+            LOG(WARNING) << "ReadNetData read other error 1";
             return -1;
         }
     }
@@ -192,7 +193,7 @@ int AcceptConnection(int lfd, int efd, int& infd)
         }
         else
         {
-            perror ("accept");
+            LOG(ERROR) << "accept";
             return -1;
         }
     }
@@ -207,14 +208,14 @@ int AcceptConnection(int lfd, int efd, int& infd)
         return 0;
     }
     
-    Logd("AcceptConnection Accept connection fd:%d", infd);
+    LOG(INFO) << "AcceptConnection Accept connection fd: " << infd;
     
     event.data.fd = infd;
     event.events = EPOLLIN | EPOLLET;
     s = epoll_ctl (efd, EPOLL_CTL_ADD, infd, &event);
     if (s == -1)
     {
-        perror ("epoll_ctl");
+        LOG(WARNING) << "epoll_ctl";
         infd = -1;
         return 0;
     }
@@ -250,7 +251,7 @@ int TcpListener::NetInit(int port)
     epollfd = epoll_create1(0);
     if (epollfd == -1)
     {
-        perror ("epoll_create");
+        LOG(ERROR) << "epoll_create";
         close(tcpfd);
         return -1;
     }
@@ -260,7 +261,7 @@ int TcpListener::NetInit(int port)
     s = epoll_ctl (epollfd, EPOLL_CTL_ADD, tcpfd, &event);
     if (s == -1)
     {
-        perror ("epoll_ctl");
+        LOG(ERROR) << "epoll_ctl";
         close(epollfd);
         close(tcpfd);
         return -1;
@@ -285,14 +286,19 @@ void TcpListener::HandleInputEvent(TcpConnect* conn, uint& eventflag)
         int ret = ReadNetData(conn->fd, conn);
         if (ret == -1 || ret == 1) //drop connection when read error or query too long(treat as attack)
         {
-            fprintf(stderr, "HandleInputEvent Read Failed close %d %llu", conn->fd, conn->id);
+            LOG(WARNING) << "HandleInputEvent Read Failed close " << conn->fd << "  " << conn->id;
             CloseConnection(conn);
             return;
         }
 
-        fprintf(stderr, "===============\n");
-        fprintf(stderr, "%s\n", conn->ptr);
-        fprintf(stderr, "===============\n");
+        if(_proc != NULL)
+        {
+            _proc->ProcInput(conn->id, conn->ptr, conn->dataSize);
+        }
+
+        //fprintf(stderr, "===============\n");
+        //fprintf(stderr, "%s\n", conn->ptr);
+        //fprintf(stderr, "===============\n");
         
         conn->dataSize = 0;
     }
@@ -367,6 +373,7 @@ void TcpListener::ProcessInput(int lfd, int efd, int n, struct epoll_event *even
 
 int TcpListener::Listen(int port)
 {
+    LOG(INFO) << "TCP Listen " << port;
     int retcode = NetInit(port);
     
     epoll_event events[MAXEVENTS];
@@ -375,5 +382,7 @@ int TcpListener::Listen(int port)
         int n = epoll_wait (epollfd, events, MAXEVENTS, 1000);
         ProcessInput(tcpfd, epollfd, n, events);
         //ProcessOutput(epollfd, g_WriteList, g_PendingOutputs);
+
+        //LOG(INFO) << g_Seq2Conn.size();
     }
 }

@@ -1,12 +1,11 @@
 #include <iostream>
-#include "TcpListener.h"
-#include "common.h"
+#include "HLS.h"
 
 int main()
 {
     
-    TcpListener hls;
-    hls.Listen(1060);
+    HLSServer hls;
+    hls.StartServer();
     
     return 0;
 }

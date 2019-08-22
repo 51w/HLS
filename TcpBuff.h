@@ -2,8 +2,10 @@
 #define _TCPBUFF_H_
 #include <stdio.h>
 #include <stdlib.h>
+#include "common.h"
 
 /////////////////////////////
+
 class TcpBuff
 {
 public:
@@ -15,7 +17,7 @@ public:
 public:
     int dataSize;
     int bufferSize;
-    unsigned char* ptr;
+    uchar* ptr;
 };
 
 /////////////////////////////
@@ -31,13 +33,6 @@ public:
     //TcpBuff recvBuff;
 };
 
-class TcpSend
-{
-public:
-    TcpSend();
-    ~TcpSend();
-    
-};
 /////////////////////////////
 
 #endif

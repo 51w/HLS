@@ -38,14 +38,3 @@ TcpConnect::~TcpConnect()
 {
 
 }
-
-
-TcpSend::TcpSend()
-{
-
-}
-
-TcpSend::~TcpSend()
-{
-
-}

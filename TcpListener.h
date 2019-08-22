@@ -4,6 +4,17 @@
 #include "TcpBuff.h"
 #include <map>
 
+class TcpProc
+{
+public:
+    virtual ~TcpProc() {}
+    virtual int ProcInput(ullong id, uchar* input, int size) = 0;
+    virtual int ProcOutput()  = 0;
+    
+    virtual int StartServer() = 0;
+    virtual int StopServer()  = 0;
+};
+
 class TcpListener
 {
 public:
@@ -17,10 +28,12 @@ public:
     bool SetupConnection(int infd);
     void CloseConnection(TcpConnect* conn);
     void HandleInputEvent(TcpConnect* conn, uint& eventflag);
+    void SetProc(TcpProc *proc);
 
     int tcpfd;
     int epollfd;
     ullong g_NextSeqId;
+    TcpProc *_proc;
 
     std::map<int,    TcpConnect*> g_FD2Conn; 
     std::map<ullong, TcpConnect*> g_Seq2Conn;
