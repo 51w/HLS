@@ -1,5 +1,7 @@
 ///////////////////////////////////////
 #include "TcpBuff.h"
+#include <stdio.h>
+#include <unistd.h>
 
 TcpBuff::TcpBuff()
 :fd(-1), id(-1), datasize(0), offset(0), size(0)
@@ -48,19 +50,37 @@ TcpConnect::~TcpConnect()
 
 }
 
-bool TcpConnect::OpenConnect(int infd)
+bool TcpConnect::OpenConnect(int fd)
 {
     ullong id = _ConnectID++;
     LOG(INFO) << "OpenConnect connection id " << id;
 
     TcpBuff *conn = new TcpBuff();
     conn->SetSize(1024);
-    conn->fd =  infd;
+    conn->fd =  fd;
     conn->id =  id;
-    _ID2Conn.insert(std::make_pair(id,   conn));
-    _FD2Conn.insert(std::make_pair(infd, conn));
+
+    _FD2Conn.insert(std::make_pair(fd, conn));
+    _ID2Conn.insert(std::make_pair(id, conn));
 
     return (conn != NULL);
+}
+
+bool TcpConnect::IsConnect(int fd)
+{
+    return _FD2Conn.count(fd);
+}
+
+bool TcpConnect::CloseConnect(int fd)
+{
+    close(fd);
+
+    delete _FD2Conn[fd];
+
+    _FD2Conn.erase(_FD2Conn[fd]->fd);
+    _ID2Conn.erase(_FD2Conn[fd]->id);
+
+    return true;
 }
 
 ///////////////////////////////////////

@@ -105,10 +105,10 @@ int create_and_bind(int port)
     return sfd;
 }
 
-int ReadNetData(int fd, TcpConnect* data)
+int ReadNetData(int fd, TcpBuff* data)
 {
-    char* buf = (char*)data->ptr + data->dataSize;
-    int bufSize = data->bufferSize - data->dataSize;
+    char* buf = (char*)data->ptr + data->datasize;
+    int bufSize = data->size - data->datasize;
     
     int offset = 0;
     while (offset < bufSize)
@@ -122,7 +122,7 @@ int ReadNetData(int fd, TcpConnect* data)
         {
             if (errno == EAGAIN || errno == EWOULDBLOCK) //no data
             {
-                data->dataSize += offset;
+                data->datasize += offset;
                 return 0;
             }
             else if (errno == EINTR) //interrupt
@@ -251,16 +251,8 @@ int TcpListener::NetInit(int port)
     return 0;
 }
 
-void TcpListener::CloseConnection(TcpConnect* conn)
-{
-    close(conn->fd);
 
-    g_FD2Conn.erase(conn->fd);
-    g_Seq2Conn.erase(conn->id);
-    delete conn;
-}
-
-void TcpListener::HandleInputEvent(TcpConnect* conn, uint& eventflag)
+void TcpListener::HandleInputEvent(TcpBuff* conn, uint& eventflag)
 {
     if (eventflag & EPOLLIN)
     {
@@ -268,20 +260,22 @@ void TcpListener::HandleInputEvent(TcpConnect* conn, uint& eventflag)
         if (ret == -1 || ret == 1) //drop connection when read error or query too long(treat as attack)
         {
             LOG(WARNING) << "HandleInputEvent Read Failed close " << conn->fd << "  " << conn->id;
-            CloseConnection(conn);
+            ConnCTL.CloseConnect(conn->fd);
+            //close(conn->fd);
+            LOG(WARNING) << "---------[" << (conn == NULL) << "]";
             return;
         }
 
         if(_proc != NULL)
         {
-            _proc->ProcInput(conn->id, conn->ptr, conn->dataSize);
+            _proc->ProcInput(conn->id, conn->ptr, conn->datasize);
         }
 
         //fprintf(stderr, "===============\n");
         //fprintf(stderr, "%s\n", conn->ptr);
         //fprintf(stderr, "===============\n");
         
-        conn->dataSize = 0;
+        conn->datasize = 0;
     }
 
     if (eventflag & EPOLLOUT) 
@@ -302,13 +296,13 @@ void TcpListener::ProcessInput(int lfd, int efd, int n, struct epoll_event *even
         if ((eventflag & EPOLLERR) || (eventflag & EPOLLHUP))
         {
             printf("close matchFd %d when conn error\n", eventFd);
-            if (g_FD2Conn.count(eventFd) != 0)
+            if (ConnCTL.IsConnect(eventFd))
             {
-                CloseConnection(g_FD2Conn[eventFd]);
+                ConnCTL.CloseConnect(eventFd);
             }
             else
-            {
-                close(eventFd); //should never happend, must be bug
+            {//should never happend, must be bug
+                close(eventFd);
             }
 
 	    }
@@ -328,7 +322,7 @@ void TcpListener::ProcessInput(int lfd, int efd, int n, struct epoll_event *even
                 if (infd != -1)
                 {
                     printf("SetupConnection\n");
-                    if (SetupConnection(infd) == false)
+                    if (ConnCTL.OpenConnect(infd) == false)
                     {
                         close(infd);
                     }
@@ -338,10 +332,10 @@ void TcpListener::ProcessInput(int lfd, int efd, int n, struct epoll_event *even
         else
         {
             printf("lfd != eventFd\n");
-            if (g_FD2Conn.count(eventFd) != 0)
+            if (ConnCTL.IsConnect(eventFd))
             {
                 fprintf(stderr, "HandleInputEvent\n");
-                HandleInputEvent(g_FD2Conn[eventFd], eventflag);
+                HandleInputEvent(ConnCTL._FD2Conn[eventFd], eventflag);
             }
             else
             {
@@ -360,10 +354,7 @@ int TcpListener::Listen(int port)
     epoll_event events[MAXEVENTS];
     while(1)
     {
-        int n = epoll_wait (epollfd, events, MAXEVENTS, 1000);
+        int n = epoll_wait(epollfd, events, MAXEVENTS, 1000);
         ProcessInput(tcpfd, epollfd, n, events);
-        //ProcessOutput(epollfd, g_WriteList, g_PendingOutputs);
-
-        //LOG(INFO) << g_Seq2Conn.size();
     }
 }

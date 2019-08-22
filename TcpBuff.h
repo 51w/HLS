@@ -33,7 +33,9 @@ public:
     TcpConnect();
     ~TcpConnect();
 
-    bool OpenConnect(int infd);
+    bool OpenConnect(int fd);
+    bool CloseConnect(int fd);
+    bool IsConnect(int fd);
 
     ullong _ConnectID;
 
