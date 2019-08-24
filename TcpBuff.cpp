@@ -73,12 +73,13 @@ bool TcpConnect::IsConnect(int fd)
 
 bool TcpConnect::CloseConnect(int fd)
 {
+    int id = _FD2Conn[fd]->id;
     close(fd);
 
     delete _FD2Conn[fd];
 
-    _FD2Conn.erase(_FD2Conn[fd]->fd);
-    _ID2Conn.erase(_FD2Conn[fd]->id);
+    _FD2Conn.erase(fd);
+    _ID2Conn.erase(id);
 
     return true;
 }

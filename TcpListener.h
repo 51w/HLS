@@ -23,6 +23,7 @@ public:
     int Listen(int port);
     int NetInit(int port);
 
+    int  WriteNetData(int fd, TcpBuff* data);
     void ProcessInput(int lfd, int efd, int n, struct epoll_event *events);
     void HandleInputEvent(TcpBuff* conn, uint& eventflag);
     void SetProc(TcpProc *proc);

@@ -151,6 +151,49 @@ int ReadNetData(int fd, TcpBuff* data)
     return 1; //buffer full
 }
 
+int TcpListener::WriteNetData(int fd, TcpBuff* data)
+{
+    char* buf = (char*)data->ptr + data->offset;
+    int bufSize = data->datasize;
+    
+    int offset = 0;
+    while(offset < bufSize)
+    {
+        int nwrite = write(fd, buf + offset, bufSize - offset);
+        if (nwrite >= 0) //normal write
+        {
+            offset += nwrite;
+        }
+        else if (nwrite == -1)
+        {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) // write block
+            {
+                //printf("EAGAIN\n");
+                data->offset += offset;
+                data->datasize -= offset;
+                return 0;
+            }
+            else if (errno == EINTR) //interrupt
+            {
+                continue;
+            }
+            else //other error
+            {
+                return -1;
+            }
+        }
+        else //other error , should never happen
+        {
+            printf("Write Failed!!!\n");
+            return -1;
+        }
+    }
+    
+    data->offset = data->size;
+    data->datasize   = 0;
+    return 1;
+}
+
 int AcceptConnection(int lfd, int efd, int& infd)
 {
     struct sockaddr in_addr;
