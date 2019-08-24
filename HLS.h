@@ -8,7 +8,7 @@ public:
     HLSServer();
     ~HLSServer();
 
-    virtual int ProcInput(ullong id, uchar* input, int size);
+    virtual int ProcInput(TcpBuff* conn);
     virtual int ProcOutput();
 
     int StartServer();

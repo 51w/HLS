@@ -10,9 +10,9 @@ HLSServer::~HLSServer()
 
 }
 
-int HLSServer::ProcInput(ullong id, uchar* input, int size)
+int HLSServer::ProcInput(TcpBuff* conn)
 {
-    LOG(INFO) << id << "zzzzzzzzz\n" << input;
+    LOG(INFO) << conn->id << "zzzzzzzzz\n" << conn->ptr;
 
 }
 

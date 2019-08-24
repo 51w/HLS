@@ -7,7 +7,7 @@ class TcpProc
 {
 public:
     virtual ~TcpProc() {}
-    virtual int ProcInput(ullong id, uchar* input, int size) = 0;
+    virtual int ProcInput(TcpBuff* conn) = 0;
     virtual int ProcOutput()  = 0;
 
     virtual int StartServer() = 0;

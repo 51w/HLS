@@ -262,13 +262,13 @@ void TcpListener::HandleInputEvent(TcpBuff* conn, uint& eventflag)
             LOG(WARNING) << "HandleInputEvent Read Failed close " << conn->fd << "  " << conn->id;
             ConnCTL.CloseConnect(conn->fd);
             //close(conn->fd);
-            LOG(WARNING) << "---------[" << (conn == NULL) << "]";
+            //LOG(WARNING) << "---------[" << (conn == NULL) << "]";
             return;
         }
 
         if(_proc != NULL)
         {
-            _proc->ProcInput(conn->id, conn->ptr, conn->datasize);
+            _proc->ProcInput(conn);
         }
 
         //fprintf(stderr, "===============\n");
@@ -348,7 +348,6 @@ void TcpListener::ProcessInput(int lfd, int efd, int n, struct epoll_event *even
 
 int TcpListener::Listen(int port)
 {
-    LOG(INFO) << "TCP Listen " << port;
     int retcode = NetInit(port);
     
     epoll_event events[MAXEVENTS];
