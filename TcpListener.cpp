@@ -27,7 +27,7 @@ void TcpListener::SetProc(TcpProc *proc)
     _proc = proc;
 }
 
-int make_socket_non_blocking (int fd)
+int Set_NONBLOCK(int fd)
 {
     int flags = fcntl(fd, F_GETFL, 0);
     if (flags == -1)
@@ -224,7 +224,7 @@ int AcceptConnection(int lfd, int efd, int& infd)
     
     /* Make the incoming socket non-blocking and add it to the
      list of fds to monitor. */
-    int s = make_socket_non_blocking (infd);
+    int s = Set_NONBLOCK (infd);
     if (s == -1)
     {
         close(infd);
@@ -256,7 +256,7 @@ int TcpListener::NetInit(int port)
     tcpfd = create_and_bind (port);
     if (tcpfd == -1) return -1;
     
-    s = make_socket_non_blocking (tcpfd);
+    s = Set_NONBLOCK (tcpfd);
     if (s == -1)
     {
         close(tcpfd);
