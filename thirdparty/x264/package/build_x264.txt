@@ -1,0 +1,18 @@
+1. msys
+
+2. pacman -S nasm
+//nasm-2.14.03rc2-win64.zip
+
+3. config.guess  config.sub
+
+====================================
+./configure --disable-thread --disable-avs 
+--extra-ldflags=-Wl,--output-def=libx264.def
+--enable-win32thread
+====================================
+./configure --enable-shared  --disable-win32thread --disable-avs 
+
+
+make 
+
+
