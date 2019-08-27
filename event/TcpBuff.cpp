@@ -56,7 +56,7 @@ bool TcpConnect::OpenConnect(int fd)
     LOG(INFO) << "OpenConnect connection id " << id;
 
     TcpBuff *conn = new TcpBuff();
-    conn->SetSize(1024);
+    conn->SetSize(4096);
     conn->fd =  fd;
     conn->id =  id;
 

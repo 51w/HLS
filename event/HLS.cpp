@@ -26,11 +26,16 @@ int HLSServer::Proc_EPOLLNEW(int fd)
 }
 int HLSServer::Proc_EPOLLIN(int fd)
 {
+static int zz=0;
+if(zz<2)
+{
     LOG(INFO) << "Proc_EPOLLIN " << fd;
     TcpBuff* conn = tcpconnect->_FD2Conn[fd];
     memset(conn->ptr, 0, conn->size);
+    conn->datasize = 0;
+
     int ret = tcplisten->ReadNetData(fd, conn);
-    LOG(INFO) << conn->id << "zzzzzzzzz" << conn->ptr;
+    LOG(INFO) << conn->datasize << " " << conn->ptr;
 
     if(ret == -1 || ret == 1)
     {
@@ -38,38 +43,43 @@ int HLSServer::Proc_EPOLLIN(int fd)
         return -1;
     }
 
-static int iii = 0;
-if(iii == 0)
-{
-    TcpBuff* sendbuf = new TcpBuff();
-    sendbuf->SetSize(1024);
-    sendbuf->fd = conn->fd;
-    sendbuf->id = conn->id;
+    for(int i=0; i<9; i++)
+    {
+        fprintf(stderr, "%d ", conn->ptr[i]);
+    }
+    fprintf(stderr, "\n\n");
+    for(int i=9; i<9+764; i++)
+    {
+        fprintf(stderr, "%d ", conn->ptr[i]);
+    }
+    fprintf(stderr, "\n\n");
+    for(int i=9+764; i<9+764+764; i++)
+    {
+        fprintf(stderr, "%d ", conn->ptr[i]);
+    }
+    for(int i=1; i<9; i++)
+    {
+        conn->ptr[i] = 0;
+    }
+    for(int i=0; i<1536; i++)
+    {
+        conn->ptr[1537+i] = i;
+    }
     
-    std::string buf = "HTTP/1.1 200 OK\r\nContent-Type: audio/x-mpegurl\r\nServer: FlashCom/3.5.4\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: GET, PUT, POST, DELETE, OPTIONS\r\nContent-Length: 453\r\n\r\n";
-    buf += "#EXTM3U\r\n";
-    buf += "#EXT-X-TARGETDURATION:3\r\n";
-    buf += "#EXT-X-VERSION:3\r\n";
-    buf += "#EXT-X-MEDIA-SEQUENCE:0\r\n";
-    buf += "#EXT-X-PLAYLIST-TYPE:VOD\r\n";
-    buf += "#EXTINF:3.3,\r\n";
-    buf += "media_0.ts?proxysessionid=1804289438,bandwidth=1647992\r\n";
-    buf += "#EXTINF:3.0,\r\n";
-    buf += "media_1.ts?proxysessionid=1804289438,bandwidth=1647992\r\n";
-    buf += "#EXTINF:3.0,\r\n";
-    buf += "media_2.ts?proxysessionid=1804289438,bandwidth=1647992\r\n";
-    buf += "#EXTINF:3.0,\r\n";
-    buf += "media_3.ts?proxysessionid=1804289438,bandwidth=1647992\r\n";
-    buf += "#EXTINF:1.0,\r\n";
-    buf += "media_4.ts?proxysessionid=1804289438,bandwidth=1647992\r\n";
-    buf += "EXT-X-ENDLIST\r\n";
+    conn->datasize += 1536;
+    tcplisten->WriteNetData(fd, conn);
+zz++;
+}
+else
+{
+    TcpBuff* conn = tcpconnect->_FD2Conn[fd];
+    memset(conn->ptr, 0, conn->size);
+    conn->datasize = 0;
 
-    memcpy(sendbuf->ptr, buf.c_str(), buf.length());
-    sendbuf->datasize = buf.length();
+    int ret = tcplisten->ReadNetData(fd, conn);
+    LOG(INFO) << conn->datasize << " " << conn->ptr;
 
-    tcplisten->WriteNetData(sendbuf->fd, sendbuf);
-    delete sendbuf;
-iii = 1;
+    fprintf(stderr, "%s ", conn->ptr+10);
 }
 
     return 0;

@@ -3,6 +3,9 @@
 
 int main()
 {
+    int aa = (int)time(NULL);
+    LOG(INFO) << aa;
+    LOGI("%x\n", aa);
 
     HLSServer hls;
     hls.StartServer();

@@ -236,7 +236,7 @@ int TcpListener::ProcEvent(int num, struct epoll_event *events)
         int status = _proc->Proc_EPOLLIN(ProcFD);
         if(status != 0)
         {
-            LOG(ERROR) << "ProcEvent Proc_EPOLLNEW False.";
+            LOG(ERROR) << "ProcEvent EPOLLIN False.";
             close(ProcFD);
         }
     }
