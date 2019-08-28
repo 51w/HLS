@@ -1,18 +1,37 @@
-1. msys
+1.  msys
 
-2. pacman -S nasm
-//nasm-2.14.03rc2-win64.zip
+2.  pacman -S nasm gcc
+    //nasm-2.14.03rc2-win64.zip
 
-3. config.guess  config.sub
+3.  config.guess  config.sub
 
-====================================
-./configure --disable-thread --disable-avs 
---extra-ldflags=-Wl,--output-def=libx264.def
---enable-win32thread
-====================================
-./configure --enable-shared  --disable-win32thread --disable-avs 
+4.
+[shared]
+./configure --enable-shared --enable-static --disable-win32thread --disable-avs --prefix=/d/000/xxx
+[static]
+./configure --enable-static --disable-win32thread --disable-avs --prefix=/d/000/xxx --extra-ldflags=-Wl,--output-def=libx264.def
+
+CC=cl ./configure --prefix=/d/000/xxx --enable-shared --disable-win32thread --disable-avs --extra-ldflags=-Wl,--output-def=libx264.def
+
+5.   make -j4
 
 
-make 
+===========================================================
+VS2015 cl.exe编译x2654
+1 打开VS2015 x64命令行
+2 设置msys2_shell.cmd的配置set MSYS2_PATH_TYPE=inherit
+3 打开mingw64输入msys2_shell.cmd -mingw64
+4 
+动态库
+CC=cl.exe ./configure --prefix=/d/000/xxx --enable-shared --disable-win32thread --disable-avs --extra-ldflags=-Wl,--output-def=libx264.def
+静态库
+CC=cl.exe ./configure --prefix=/d/000/xxx --enable-shared --enable-static --disable-win32thread --disable-avs --extra-ldflags=-Wl,--output-def=libx264.def
 
+>>>>Thread
+CC=cl.exe ./configure --prefix=/d/000/xxx --enable-shared --enable-static --extra-ldflags=-Wl,--output-def=libx264.def
+
+
+make -j8
+make install
+============================================================
 
